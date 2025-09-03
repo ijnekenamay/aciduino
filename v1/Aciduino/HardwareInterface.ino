@@ -3,6 +3,10 @@
 
 // Shift Register Control Variables
 uint8_t _led_state = 0x00;  // Current LED state (8 bits)
+// Trigger pulse manager (non-blocking)
+unsigned long _pulse_end_clock = 0;
+unsigned long _pulse_end_start = 0;
+unsigned long _pulse_end_stop  = 0;
 
 // Sequence Direction Control Variables
 uint8_t _sequence_direction = SEQUENCE_FORWARD;  // Current sequence direction
@@ -25,7 +29,6 @@ typedef struct
 // button data
 typedef struct
 {
-  uint8_t pin;
   bool state;
   uint8_t hold_seconds;
   bool hold_trigger;
@@ -33,6 +36,8 @@ typedef struct
 
 POT_DATA _pot[POT_NUMBER];
 BUTTON_DATA _button[BUTTON_NUMBER];
+uint8_t _button_mask_current = 0x00; // bit ON: pressed
+uint8_t _button_mask_last = 0x00;
 
 // pattern memory layout 72 bytes(2 tracks with 16 steps)
 // byte1: pattern_exist
@@ -188,15 +193,42 @@ void connectPot(uint8_t pot_id, uint8_t pot_pin)
   _pot[pot_id].lock = true;
 }
 
-void connectButton(uint8_t button_id, uint8_t button_pin)
+// 74HC165 button shift-register IO
+void initButtonShift()
 {
-  _button[button_id].pin = button_pin;
-  // use internal pullup for buttons
-  pinMode(_button[button_id].pin, INPUT_PULLUP);
-  // get first state data
-  _button[button_id].state = digitalRead(_button[button_id].pin);
+  pinMode(BUTTON_SHIFT_DATA_PIN, INPUT);
+  pinMode(BUTTON_SHIFT_CLOCK_PIN, OUTPUT);
+  pinMode(BUTTON_SHIFT_LATCH_PIN, OUTPUT);
+  digitalWrite(BUTTON_SHIFT_CLOCK_PIN, LOW);
+  digitalWrite(BUTTON_SHIFT_LATCH_PIN, HIGH);
+}
+
+void connectButton(uint8_t button_id)
+{
+  _button[button_id].state = false;
   _button[button_id].hold_seconds = 0;
   _button[button_id].hold_trigger = false;
+}
+
+static inline uint8_t readButtonsMask()
+{
+  // parallel load
+  digitalWrite(BUTTON_SHIFT_LATCH_PIN, LOW);
+  delayMicroseconds(1);
+  digitalWrite(BUTTON_SHIFT_LATCH_PIN, HIGH);
+  // shift out 8 bits (MSB first from QH)
+  uint8_t value = 0;
+  for (int i = 7; i >= 0; --i) {
+    // read data
+    uint8_t bitv = digitalRead(BUTTON_SHIFT_DATA_PIN);
+    value |= (bitv ? 1 : 0) << i;
+    // next bit
+    digitalWrite(BUTTON_SHIFT_CLOCK_PIN, HIGH);
+    delayMicroseconds(1);
+    digitalWrite(BUTTON_SHIFT_CLOCK_PIN, LOW);
+  }
+  // active-low buttons (to GND) with pull-ups → invert to get pressed=1
+  return (uint8_t)(~value);
 }
  
 void lockPotsState(bool lock)
@@ -208,45 +240,29 @@ void lockPotsState(bool lock)
 
 bool pressed(uint8_t button_id)
 {
-  bool value;
-  
-  value = digitalRead(_button[button_id].pin);
-  
-  // using internal pullup pressed button goes LOW
-  if ( value != _button[button_id].state && value == LOW ) {
-    _button[button_id].state = value; 
-    return true;    
-  } else {
-    _button[button_id].state = value; 
-    return false;
-  }
+  _button_mask_current = readButtonsMask();
+  bool value = (_button_mask_current >> button_id) & 0x01;
+  bool last = (_button_mask_last >> button_id) & 0x01;
+  bool rising = (!last && value);
+  _button[button_id].state = value;
+  _button_mask_last = _button_mask_current;
+  return rising;
 }
 
 bool doublePressed(uint8_t button1_id, uint8_t button2_id)
 {
-  bool value1, value2;
-  
-  value1 = digitalRead(_button[button1_id].pin);
-  value2 = digitalRead(_button[button2_id].pin);
-  
-  // using internal pullup pressed button goes LOW
-  if ( value1 == LOW && value2 == LOW ) {
-    _button[button1_id].state = LOW; 
-    _button[button2_id].state = LOW;
-    return true;    
-  } else {
-    return false;
-  }
+  _button_mask_current = readButtonsMask();
+  bool v1 = (_button_mask_current >> button1_id) & 0x01;
+  bool v2 = (_button_mask_current >> button2_id) & 0x01;
+  _button_mask_last = _button_mask_current;
+  return (v1 && v2);
 }
 
 bool holded(uint8_t button_id, uint8_t seconds)
 {
-  bool value;
-  
-  value = digitalRead(_button[button_id].pin);
-  
-  // using internal pullup pressed button goes LOW
-  if ( _button[button_id].hold_trigger == false && value == LOW ) {
+  _button_mask_current = readButtonsMask();
+  bool value = (_button_mask_current >> button_id) & 0x01;
+  if ( _button[button_id].hold_trigger == false && value == true ) {
     if ( _button[button_id].hold_seconds == 0 ) {
       _button[button_id].hold_seconds = (uint8_t)(millis()/1000);
     } else if ( abs((uint8_t)(millis()/1000) - _button[button_id].hold_seconds) >= seconds ) {
@@ -254,7 +270,7 @@ bool holded(uint8_t button_id, uint8_t seconds)
       return true;    
     }
     return false;
-  } else if ( value == HIGH ) {
+  } else if ( value == false ) {
     _button[button_id].hold_trigger = false;
     _button[button_id].hold_seconds = 0;
     return false;
@@ -263,18 +279,13 @@ bool holded(uint8_t button_id, uint8_t seconds)
 
 bool released(uint8_t button_id)
 {
-  bool value;
-  
-  value = digitalRead(_button[button_id].pin);
-  
-  // using internal pullup released button goes HIGH
-  if ( value != _button[button_id].state && value == HIGH && _button[button_id].hold_trigger == false ) {
-    _button[button_id].state = value; 
-    return true;    
-  } else {
-    _button[button_id].state = value; 
-    return false;
-  }
+  _button_mask_current = readButtonsMask();
+  bool value = (_button_mask_current >> button_id) & 0x01;
+  bool last = (_button_mask_last >> button_id) & 0x01;
+  bool falling = (last && !value) && (_button[button_id].hold_trigger == false);
+  _button[button_id].state = value;
+  _button_mask_last = _button_mask_current;
+  return falling;
 }
 
 int16_t getPotChanges(uint8_t pot_id, uint16_t min_value, uint16_t max_value)
@@ -540,6 +551,36 @@ void initCVOutputs()
   setAllLEDs(0x55); // Alternating pattern for testing
 }
 
+static inline void startTriggerPulse(uint8_t pin)
+{
+  unsigned long until = millis() + (unsigned long)TRIGGER_PULSE_WIDTH;
+  digitalWrite(pin, HIGH);
+  if (pin == TRIGGER_CLOCK_PIN) {
+    _pulse_end_clock = until;
+  } else if (pin == TRIGGER_START_PIN) {
+    _pulse_end_start = until;
+  } else if (pin == TRIGGER_STOP_PIN) {
+    _pulse_end_stop = until;
+  }
+}
+
+void processTriggerPulses()
+{
+  unsigned long now = millis();
+  if (_pulse_end_clock != 0 && (long)(now - _pulse_end_clock) >= 0) {
+    digitalWrite(TRIGGER_CLOCK_PIN, LOW);
+    _pulse_end_clock = 0;
+  }
+  if (_pulse_end_start != 0 && (long)(now - _pulse_end_start) >= 0) {
+    digitalWrite(TRIGGER_START_PIN, LOW);
+    _pulse_end_start = 0;
+  }
+  if (_pulse_end_stop != 0 && (long)(now - _pulse_end_stop) >= 0) {
+    digitalWrite(TRIGGER_STOP_PIN, LOW);
+    _pulse_end_stop = 0;
+  }
+}
+
 // Convert MIDI note to CV voltage (1V/octave)
 uint16_t noteToCV(uint8_t note)
 {
@@ -581,25 +622,19 @@ void outputGate(uint8_t track, bool state)
 // Output Clock trigger pulse
 void outputClockTrigger()
 {
-  digitalWrite(TRIGGER_CLOCK_PIN, HIGH);
-  delay(TRIGGER_PULSE_WIDTH);
-  digitalWrite(TRIGGER_CLOCK_PIN, LOW);
+  startTriggerPulse(TRIGGER_CLOCK_PIN);
 }
 
 // Output Start trigger pulse
 void outputStartTrigger()
 {
-  digitalWrite(TRIGGER_START_PIN, HIGH);
-  delay(TRIGGER_PULSE_WIDTH);
-  digitalWrite(TRIGGER_START_PIN, LOW);
+  startTriggerPulse(TRIGGER_START_PIN);
 }
 
 // Output Stop trigger pulse
 void outputStopTrigger()
 {
-  digitalWrite(TRIGGER_STOP_PIN, HIGH);
-  delay(TRIGGER_PULSE_WIDTH);
-  digitalWrite(TRIGGER_STOP_PIN, LOW);
+  startTriggerPulse(TRIGGER_STOP_PIN);
 }
 
 // Read external clock input

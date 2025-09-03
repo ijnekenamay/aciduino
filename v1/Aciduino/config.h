@@ -18,7 +18,7 @@
 #define CV_BASE_VOLTAGE     2.5     // 2.5V for middle C
 #define CV_VOLTS_PER_OCTAVE 1.0     // 1V per octave
 
-// DAC Configuration (MCP4921)
+// DAC Configuration (MCP4922)
 #define DAC_CS_PIN          10      // DAC Chip Select pin
 #define DAC_SCK_PIN        13      // DAC Serial Clock pin
 #define DAC_MOSI_PIN       11      // DAC Master Out Slave In pin
@@ -91,18 +91,16 @@
 #define GENERIC_POT_3_PIN     A1
 #define GENERIC_POT_4_PIN     A0
 
-// Buttons (Arduino Nano - シフトレジスタとポテンショメータと重複を避けて設定)
-#define GENERIC_BUTTON_1_PIN  10      // D10
-#define GENERIC_BUTTON_2_PIN  11      // D11
-#define GENERIC_BUTTON_3_PIN  12      // D12
-#define GENERIC_BUTTON_4_PIN  13      // D13 (内蔵LEDと共有、注意が必要)
-#define GENERIC_BUTTON_5_PIN  A2      // A2 (ポテンショメータ2と共有、注意が必要)
-#define GENERIC_BUTTON_6_PIN  A3      // A3 (ポテンショメータ1と共有、注意が必要)
 
-// Shift Register Configuration (74HC595)
-#define SHIFT_DATA_PIN        7       // D7 - シフトレジスタデータ入力
-#define SHIFT_CLOCK_PIN       8       // D8 - シフトレジスタクロック
-#define SHIFT_LATCH_PIN       9       // D9 - シフトレジスタラッチ
+  // Shift Register Configuration
+  // LED: 74HC595 (output) / BUTTON: 74HC165 (input)
+  #define LED_SHIFT_DATA_PIN        7       // D7 - 74HC595 DS
+  #define LED_SHIFT_CLOCK_PIN       8       // D8 - 74HC595 SHCP
+  #define LED_SHIFT_LATCH_PIN       9       // D9 - 74HC595 STCP
+  // Share clock/latch with LED SR to save pins; BUTTON data uses D12 (MISO)
+  #define BUTTON_SHIFT_DATA_PIN     12      // D12 - 74HC165 QH (DATA to MCU)
+  #define BUTTON_SHIFT_CLOCK_PIN    LED_SHIFT_CLOCK_PIN
+  #define BUTTON_SHIFT_LATCH_PIN    LED_SHIFT_LATCH_PIN
 
 // LED Configuration (via Shift Register)
 #define LED_COUNT             8       // シフトレジスタで制御するLED数
@@ -118,22 +116,25 @@
 #define GENERIC_LED_7         6       // LED 7 (シフトレジスタ bit 6)
 #define GENERIC_LED_8         7       // LED 8 (シフトレジスタ bit 7)
 
+// Individual BUTTON definitions (for code compatibility)
+#define GENERIC_BUTTON_1         0       // ボタン 1 (シフトレジスタ bit 0)
+#define GENERIC_BUTTON_2         1       // ボタン 2 (シフトレジスタ bit 1)
+#define GENERIC_BUTTON_3         2       // ボタン 3 (シフトレジスタ bit 2)
+#define GENERIC_BUTTON_4         3       // ボタン 4 (シフトレジスタ bit 3)
+#define GENERIC_BUTTON_5         4       // ボタン 5 (シフトレジスタ bit 4)
+#define GENERIC_BUTTON_6         5       // ボタン 6 (シフトレジスタ bit 5)
+
 // CV/Gate/Trigger Output Pins (Arduino Nano)
-#define CV_TRACK1_PIN        A4      // CV output for Track 1 (DAC経由)
-#define CV_TRACK2_PIN        A5      // CV output for Track 2 (DAC経由)
 #define GATE_TRACK1_PIN      2       // Gate output for Track 1 (D2)
 #define GATE_TRACK2_PIN      3       // Gate output for Track 2 (D3)
 #define TRIGGER_CLOCK_PIN    4       // Clock trigger output (D4)
 #define TRIGGER_START_PIN    5       // Start trigger output (D5)
 #define TRIGGER_STOP_PIN     6       // Stop trigger output (D6)
 
-// CV Input Pins (for external clock sync)
-#define CV_CLOCK_IN_PIN      A6      // External clock input
-#define CV_RESET_IN_PIN      A7      // External reset input
+// CV Input Pins
+#define CV_LFO_IN_PIN        A6      // External LFO/CV input
+#define CV_MOD_IN_PIN        A7      // External modulation CV input
 
-// CV Input Configuration (for external LFO/CV control)
-#define CV_LFO_IN_PIN        A0      // External LFO/CV input (注意: ポテンショメータ4と共有)
-#define CV_MOD_IN_PIN        A1      // External modulation CV input (注意: ポテンショメータ3と共有)
 #define CV_INPUT_VOLTAGE_RANGE 5.0   // CV入力電圧範囲
 #define CV_INPUT_RESOLUTION    1024  // CV入力分解能（10ビット）
 #define CV_INPUT_THRESHOLD     512   // CV入力閾値（2.5V相当）
@@ -154,12 +155,12 @@ typedef enum {
 } POT_HARDWARE_INTERFACE;
 
 typedef enum {
-  GENERIC_BUTTON_1,
-  GENERIC_BUTTON_2,
-  GENERIC_BUTTON_3,
-  GENERIC_BUTTON_4,
-  GENERIC_BUTTON_5,
-  GENERIC_BUTTON_6
+  BUTTON_1,
+  BUTTON_2,
+  BUTTON_3,
+  BUTTON_4,
+  BUTTON_5,
+  BUTTON_6
 } BUTTON_HARDWARE_INTERFACE;
 
 typedef enum {
