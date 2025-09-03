@@ -332,7 +332,7 @@ void initDAC() {
 void writeDAC(uint8_t channel, uint16_t value) {
   digitalWrite(DAC_CS_PIN, LOW);
   
-  // 12-bit data transmission for MCP4921
+  // 12-bit data transmission for MCP4922
   // Format: 0b0011 0000 0000 0000 | (channel << 15) | (value & 0x0FFF)
   uint16_t data = 0x3000 | (channel << 15) | (value & 0x0FFF);
   

@@ -10,7 +10,7 @@
 
 // CV Output Configuration
 #define CV_VOLTAGE_RANGE     5.0    // 5V range
-#define CV_RESOLUTION        4096   // 12-bit DAC resolution (MCP4921)
+#define CV_RESOLUTION        4096   // 12-bit DAC resolution (MCP4922)
 #define CV_REFERENCE_VOLTAGE 5.0    // Reference voltage
 
 // Note to CV conversion (1V/octave standard)
@@ -132,6 +132,8 @@
 #define TRIGGER_STOP_PIN     6       // Stop trigger output (D6)
 
 // CV Input Pins
+#define CV_CLOCK_IN_PIN      A4
+#define CV_RESET_IN_PIN      A5
 #define CV_LFO_IN_PIN        A6      // External LFO/CV input
 #define CV_MOD_IN_PIN        A7      // External modulation CV input
 
