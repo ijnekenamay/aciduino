@@ -49,6 +49,9 @@ void configureInterface()
 void processInterface()
 {
   static int16_t tempo;
+  
+  // Read CV inputs for real-time modulation
+  readCVInputs();
 
   // set external sync on/off
   if ( holded(GENERIC_BUTTON_6, 2) ) {
@@ -85,6 +88,15 @@ void processInterface()
   if ( doublePressed(GENERIC_BUTTON_1, GENERIC_BUTTON_2) ) {
     lockPotsState(true);
     _selected_page = 0;
+  }
+  
+  // sequence direction change (button 1 + button 3)
+  if ( doublePressed(GENERIC_BUTTON_1, GENERIC_BUTTON_3) ) {
+    cycleSequenceDirection();
+    // Visual feedback for sequence direction
+    uint8_t direction = getSequenceDirection();
+    setAllLEDs(0x00);  // Clear all LEDs
+    setLED(direction, true);  // Light up LED corresponding to direction
   }
 
   switch ( _selected_page ) {

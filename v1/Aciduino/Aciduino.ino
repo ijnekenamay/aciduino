@@ -8,7 +8,7 @@
 void setup() 
 {
   // AcidStepSequencer Interface
-  initAcidStepSequencer(MIDI_MODE);
+  initAcidStepSequencer(CV_MODE);
   setTrackChannel(1, TRACK1_CHANNEL);
   setTrackChannel(2, TRACK2_CHANNEL);
 
