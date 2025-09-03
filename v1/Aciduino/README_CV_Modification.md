@@ -40,7 +40,7 @@ Arduino Unoでも動作しますが、ピン設定の調整が必要です。
 | 部品                   | 数量  | 機能           | 対応する操作                   |
 | ---------------------- | ----- | -------------- | ------------------------------ |
 | Arduino Nano           | 1     | メイン制御     | 全体的なシーケンサー制御       |
-| MCP4921 DAC            | 1     | CV電圧出力     | ピッチ制御（1V/octave）        |
+| MCP4922 DAC            | 1     | CV電圧出力     | ピッチ制御（1V/octave）        |
 | 74HC595                | 1     | LED制御        | 8個のLED表示制御               |
 | B10K可変抵抗器         | 4     | パラメータ制御 | 各モードでのパラメータ調整     |
 | プッシュボタン         | 6     | 操作入力       | モード切り替え、トラック選択   |
@@ -57,32 +57,39 @@ Arduino Unoでも動作しますが、ピン設定の調整が必要です。
 
 ### 出力ピン（Arduino Nano）
 
-- `A4`: Track 1 CV出力（DAC経由）
-- `A5`: Track 2 CV出力（DAC経由）
-- `D2`: Track 1 Gate出力
-- `D3`: Track 2 Gate出力
-- `D4`: Clock Trigger出力
-- `D5`: Start Trigger出力
-- `D6`: Stop Trigger出力
+- Track 1 CV（DAC チャネル A） → MCP4922 VOUTA（Arduino ピンではない）
+- Track 2 CV（DAC チャネル B） → MCP4922 VOUTB（Arduino ピンではない）
+- `D2` : Track 1 Gate 出力
+- `D3` : Track 2 Gate 出力
+- `D4` : Clock Trigger 出力
+- `D5` : Start Trigger 出力
+- `D6` : Stop Trigger 出力
 
 ### 制御ピン（Arduino Nano）
 
-- `D7`: シフトレジスタデータ入力（74HC595）
-- `D8`: シフトレジスタクロック（74HC595）
-- `D9`: シフトレジスタラッチ（74HC595）
-- `D10-D12`: ボタン入力（3個）
-- `A0-A2`: ボタン入力（3個）
-- `A3`: ポテンショメータ入力
+- `D7` : LED用74HC595 DATA (DS)
+- `D8` : LED用74HC595 CLOCK (SHCP)
+- `D9` : LED用74HC595 LATCH (STCP)
+- `D10` : DAC CS（MCP4922 の CS） ← 重要：ボタンには使わない
+- `D11` : MOSI (SPI → SDI)
+- `D13` : SCK (SPI) ← 内蔵LED と共有（SCK 操作時は注意）
+- `A0` : ポテンショメータ入力4
+- `A1` : ポテンショメータ入力3
+- `A2` : ポテンショメータ入力2
+- `A3` : ポテンショメータ入力1
+- `D12` : ボタン用74HC595 DATA (DS)
+- `D13` : ボタン用74HC595 CLOCK (SHCP)
+- `A5` : ボタン用74HC595 LATCH (STCP)
 
 ### 入力ピン
 
 - `A6`: 外部クロック入力
 - `A7`: 外部リセット入力
 
-### DAC接続（MCP4921使用例 - Arduino Nano）
+### DAC接続（MCP4922使用例 - Arduino Nano）
 
 ```
-Arduino Nano   MCP4921
+Arduino Nano   MCP4922
 -------------  -------
 Pin 13 (SCK) → SCK
 Pin 11 (MOSI) → SDI
@@ -92,14 +99,14 @@ GND → VSS
 GND → VOUT
 ```
 
-### シフトレジスタ接続（74HC595使用例）
+### LED用シフトレジスタ接続（74HC595使用）
 
 ```
 Arduino Nano   74HC595
 -------------  -------
-Pin 7 (Data) → DS (Data)
-Pin 8 (Clock) → SHCP (Shift Clock)
-Pin 9 (Latch) → STCP (Storage Clock)
+Pin D7 (Data) → DS (Data)
+Pin D8 (Clock) → SHCP (Shift Clock)
+Pin D9 (Latch) → STCP (Storage Clock)
 5V → VCC
 GND → GND
 5V → MR (Master Reset) - または10kΩで5Vに接続
@@ -116,6 +123,30 @@ GND → GND
 74HC595 Q5 → LED6 → 220Ω → GND
 74HC595 Q6 → LED7 → 220Ω → GND
 74HC595 Q7 → LED8 → 220Ω → GND
+```
+
+### ボタン用シフトレジスタ接続（74HC595使用）
+
+```
+Arduino Nano   74HC595
+-------------  -------
+Pin D12 (Data) → DS (Data)
+Pin D13 (Clock) → SHCP (Shift Clock)
+Pin A5 (Latch) → STCP (Storage Clock)
+5V → VCC
+GND → GND
+5V → MR (Master Reset) - または10kΩで5Vに接続
+```
+
+### ボタン接続（シフトレジスタ経由）
+
+```
+74HC595 Q0 → ボタン1 → GND
+74HC595 Q1 → ボタン2 → GND
+74HC595 Q2 → ボタン3 → GND
+74HC595 Q3 → ボタン4 → GND
+74HC595 Q4 → ボタン5 → GND
+74HC595 Q5 → ボタン6 → GND
 ```
 
 ### オペアンプ回路（TL072使用例）
