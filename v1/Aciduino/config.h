@@ -135,7 +135,7 @@
 #define CV_CLOCK_IN_PIN      A4
 #define CV_RESET_IN_PIN      A5
 #define CV_LFO_IN_PIN        A6      // External LFO/CV input
-#define CV_MOD_IN_PIN        A7      // External modulation CV input
+#define CV_MOD_IN_PIN        A6      // External modulation CV input
 
 #define CV_INPUT_VOLTAGE_RANGE 5.0   // CV入力電圧範囲
 #define CV_INPUT_RESOLUTION    1024  // CV入力分解能（10ビット）

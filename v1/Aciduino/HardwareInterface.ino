@@ -460,7 +460,7 @@ void readCVInputs() {
   _cv_lfo_value = analogRead(CV_LFO_IN_PIN);
   
   // Read modulation CV input (A1)
-  _cv_mod_value = analogRead(CV_MOD_IN_PIN);
+    _cv_mod_value = _cv_lfo_value; // 同じ値を使う
 }
 
 uint16_t getCVLFOValue() {

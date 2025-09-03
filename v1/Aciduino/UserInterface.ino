@@ -4,6 +4,8 @@ knobs: none, none, none, none
 
 buttons: track 1, track 2, [live mode], [generative], [step edit], play/stop
 */
+#include <Arduino.h>
+#include "config.h"
 
 uint32_t _page_blink_timer = 0; 
 uint8_t _bpm_blink_timer = 1;
